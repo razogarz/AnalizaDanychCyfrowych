@@ -1,4 +1,5 @@
 import random
+import time
 
 try:
     import numpy as np
@@ -14,6 +15,9 @@ class ConnectFour(TwoPlayerGame):
     The game of Connect Four, as described here:
     http://en.wikipedia.org/wiki/Connect_Four
     """
+    time_since_move = time.time()
+    time_sum = 0
+    number_of_moves = 0
 
     def __init__(self, players, board=None):
         self.players = players
@@ -28,23 +32,27 @@ class ConnectFour(TwoPlayerGame):
         return [i for i in range(7) if (self.board[:, i].min() == 0)]
 
     def make_move(self, column):
-        #randomize move if column is not full
-
-        random_move = random.randint(-1, 1)
-        new_column = column + random_move
-        #stay on the board
-        if new_column >= 7:
-            new_column -= 2
-        if new_column < 0:
-            new_column += 2
-        #if column is full, don't slip
-        if np.argmin(self.board[:, new_column] != 0):
-            column = new_column
+        # flip between probabilistic and deterministic
+        if True:
+            random.seed(time.time())
+            random_move = random.randint(-1, 1)
+            new_column = column + random_move
+            # stay on the board
+            if new_column >= 7:
+                new_column -= 2
+            if new_column < 0:
+                new_column += 2
+            # if column is full, don't slip
+            if np.argmin(self.board[:, new_column] != 0):
+                column = new_column
 
         line = np.argmin(self.board[:, column] != 0)
         self.board[line, column] = self.current_player
 
     def show(self):
+        time_diff = time.time() - self.time_since_move
+        self.time_sum += time_diff
+        print("Current player", self.current_player)
         print(
             "\n"
             + "\n".join(
@@ -55,6 +63,8 @@ class ConnectFour(TwoPlayerGame):
                 ]
             )
         )
+        self.time_since_move = time.time()
+        self.number_of_moves += 1
 
     def lose(self):
         return find_four(self.board, self.opponent_index)
@@ -96,38 +106,35 @@ POS_DIR = np.array(
 if __name__ == "__main__":
     # LET'S PLAY !
 
-    from easyAI import AI_Player, Negamax, SSS
+    from easyAI import AI_Player, Negamax
 
-    ai_algo_neg = Negamax(5)
-    ai_algo_sss = SSS(5)
-    #BASIC SINGLE VERSION
-    # game = ConnectFour([AI_Player(ai_algo_neg), AI_Player(ai_algo_sss)])
-    # game.play()
-    # if game.lose():
-    #     print("Player %d wins." % (game.opponent_index))
-    # else:
-    #     print("Looks like we have a draw.")
+    ai_algo_neg_one = Negamax(10)
+    ai_algo_neg_two = Negamax(10)
 
-    #LAB VERSION
     player_one_score = 0
     player_two_score = 0
     draw_count = 0
 
-    for i in range(21):
+    for i in range(1):
+        # first player starts
         if i % 2 == 0:
-            game = ConnectFour([AI_Player(ai_algo_neg), AI_Player(ai_algo_neg)])
+            game = ConnectFour([AI_Player(ai_algo_neg_one), AI_Player(ai_algo_neg_two)])
             game.play()
             if game.lose():
-                print("Player %d wins." % (game.opponent_index))
+                print("Player %d wins." % game.opponent_index)
+                avg_time = game.time_sum / game.number_of_moves
+                print(f"Average time to take decision: {game.time_sum / game.number_of_moves}")
                 player_one_score += game.opponent_index == 1
                 player_two_score += game.opponent_index == 2
             else:
                 draw_count += 1
+        # second player starts
         else:
-            game = ConnectFour([AI_Player(ai_algo_neg), AI_Player(ai_algo_neg)])
+            game = ConnectFour([AI_Player(ai_algo_neg_two), AI_Player(ai_algo_neg_one)])
             game.play()
             if game.lose():
-                print("Player %d wins." % (game.opponent_index))
+                print("Player %d wins." % game.opponent_index)
+                print(f"Average time to take decision: {game.time_sum / game.number_of_moves}")
                 player_one_score += game.opponent_index == 2
                 player_two_score += game.opponent_index == 1
             else:
