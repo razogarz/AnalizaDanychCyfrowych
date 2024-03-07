@@ -35,7 +35,7 @@ class ConnectFour(TwoPlayerGame):
         # flip to change between probabilistic and deterministic
         # True - probabilistic
         # False - deterministic
-        if True:
+        if False:
             random.seed(time.time())
             random_move = random.randint(-1, 1)
             new_column = column + random_move
@@ -96,6 +96,62 @@ def find_four(board, current_player):
     return False
 
 
+class expecti_minimax:
+    def __init__(self, depth):
+        self.depth = depth
+
+    def __call__(self, game):
+        self.opponent_index = 3 - game.current_player
+        self.time_since_move = time.time()
+        self.time_sum = 0
+        self.number_of_moves = 0
+        scores = []
+        for move in game.possible_moves():
+            game_copy = game.copy()
+            game_copy.make_move(move)
+            game_copy.switch_player()
+            score = self.mini(game_copy, self.depth, float("-inf"), float("inf"))
+            scores.append((score, move))
+        print(scores)
+        print("Time to take decision:", time.time() - self.time_since_move)
+        return max(scores)[1]
+
+    def maxi(self, game, depth, alpha, beta):
+        if game.is_over() or depth == 0:
+            return -game.scoring()
+
+        value = float("-inf")
+
+        for move in game.possible_moves():
+            game_copy = game.copy()
+            game_copy.make_move(move)
+            game_copy.switch_player()
+            value = max(value, self.mini(game_copy, depth - 1, alpha, beta))
+            alpha = max(alpha, value)
+            if alpha >= beta:
+                break
+        return value
+
+    def mini(self, game, depth, alpha, beta):
+        if game.is_over() or depth == 0:
+            if game.scoring() != 0:
+                print("Scoring:", game.scoring())
+            return game.scoring()
+
+        value = float("inf")
+
+        for move in game.possible_moves():
+            game_copy = game.copy()
+            game_copy.make_move(move)
+            game_copy.switch_player()
+            value = min(value, self.maxi(game_copy, depth - 1, alpha, beta))
+            beta = min(beta, value)
+            if alpha >= beta:
+                break
+        return value
+
+
+
 POS_DIR = np.array(
     [[[i, 0], [0, 1]] for i in range(6)]
     + [[[0, i], [1, 0]] for i in range(7)]
@@ -113,15 +169,17 @@ if __name__ == "__main__":
     ai_algo_neg_one = Negamax(5)
     ai_algo_neg_two = Negamax(5)
 
+    ai_expecti_minimax = expecti_minimax(5)
+
     player_one_score = 0
     player_two_score = 0
     draw_count = 0
 
-    for i in range(1):
+    for i in range(10):
         # choose player to start
-        game = ConnectFour([AI_Player(ai_algo_neg_one), AI_Player(ai_algo_neg_two)]) \
-                if i % 2 == 0 \
-                else ConnectFour([AI_Player(ai_algo_neg_two), AI_Player(ai_algo_neg_one)])
+        game = ConnectFour([AI_Player(ai_algo_neg_one), AI_Player(ai_expecti_minimax)]) \
+            if i % 2 == 0 \
+            else ConnectFour([AI_Player(ai_expecti_minimax), AI_Player(ai_algo_neg_one)])
         game.play()
 
         if game.lose():
@@ -129,6 +187,7 @@ if __name__ == "__main__":
             avg_time = game.time_sum / game.number_of_moves
             print(f"Average time to take decision: {game.time_sum / game.number_of_moves}")
             # player one started
+            print("Oponent index:", game.opponent_index)
             if i % 2 == 0:
                 player_one_score += game.opponent_index == 1
                 player_two_score += game.opponent_index == 2
@@ -142,4 +201,3 @@ if __name__ == "__main__":
     print("Player 1 score:", player_one_score)
     print("Player 2 score:", player_two_score)
     print("Draw count:", draw_count)
-
