@@ -1,0 +1,6 @@
+[submodule "lab02/lab02/strips"]
+	path = lab02/lab02/strips
+	url = git@github.com:primaryobjects/strips.git
+[submodule "lab02/stripsMod"]
+	path = lab02/stripsMod
+	url = git@github.com:primaryobjects/strips.git
