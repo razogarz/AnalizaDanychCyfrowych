@@ -8,7 +8,7 @@
 # Attribution-NonCommercial-ShareAlike 4.0 International License.
 # See: https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en
 
-from searchProblem import Arc, Search_problem_from_explicit_graph, Search_problem
+from lab02.aipython.searchProblem import Arc, Search_problem_from_explicit_graph, Search_problem
 
 problem1 = Search_problem_from_explicit_graph('Problem 1',
     {'A','B','C','D','G'},
