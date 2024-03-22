@@ -103,27 +103,38 @@ def clear(x):
 
 def create_blocks_world(blocks={'a', 'b', 'c', 'd'}):
     blocks_and_table = blocks | {'table'}
-    stmap = {Strips(move(x, y, z), {on(x): y, clear(x): True, clear(z): True},
-                    {on(x): z, clear(y): True, clear(z): False})
+    stmap = {
+        Strips(
+            move(x, y, z),
+            {on(x): y, clear(x): True, clear(z): True},
+            {on(x): z, clear(y): True, clear(z): False}
+               )
              for x in blocks
              for y in blocks_and_table
              for z in blocks
-             if x != y and y != z and z != x}
-    stmap.update({Strips(move(x, y, 'table'), {on(x): y, clear(x): True},
-                         {on(x): 'table', clear(y): True})
+             if x != y and y != z and z != x
+    }
+    stmap.update({
+        Strips(
+            move(x, y, 'table'),
+            {on(x): y, clear(x): True},
+            {on(x): 'table', clear(y): True})
                   for x in blocks
                   for y in blocks
-                  if x != y})
+                  if x != y
+    })
     feature_domain_dict = {on(x): blocks_and_table - {x} for x in blocks}
     feature_domain_dict.update({clear(x): boolean for x in blocks_and_table})
     return STRIPS_domain(feature_domain_dict, stmap)
 
 
 blocks1dom = create_blocks_world({'a', 'b', 'c'})
-blocks1 = Planning_problem(blocks1dom,
-                           {on('a'): 'table', clear('a'): True,
-                            on('b'): 'c', clear('b'): True,
-                            on('c'): 'table', clear('c'): False},  # initial state
+blocks1 = Planning_problem(
+    blocks1dom,
+
+   {  on('a'): 'table', clear('a'): True,
+    on('b'): 'c', clear('b'): True,
+    on('c'): 'table', clear('c'): False},  # initial state
                            {on('a'): 'b', on('c'): 'a'})  # goal
 
 blocks2dom = create_blocks_world({'a', 'b', 'c', 'd'})
