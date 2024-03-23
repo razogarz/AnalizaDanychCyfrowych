@@ -63,9 +63,14 @@ class Forward_STRIPS(Search_problem):
 
     def neighbors(self, state):
         """returns neighbors of state in this problem"""
-        return [Arc(state, self.effect(act, state.assignment), act.cost, act)
-                for act in self.prob_domain.actions
-                if self.possible(act, state.assignment)]
+        print("State:", state)
+        actions_with_possible_preconditions = [act for act in self.prob_domain.actions if
+                                               self.possible(act, state.assignment)]
+        print("Actions with possible preconditions:", actions_with_possible_preconditions)
+        neighbors = [Arc(state, self.effect(act, state.assignment), act.cost, act) for act in
+                     actions_with_possible_preconditions]
+        print("Neighbors:", neighbors)
+        return neighbors
 
     def possible(self, act, state_asst):
         """True if act is possible in state.
@@ -77,6 +82,7 @@ class Forward_STRIPS(Search_problem):
         """returns the state that is the effect of doing act given state_asst
         Python 3.9:  return state_asst | act.effects"""
         new_state_asst = state_asst.copy()
+        print("Act Effects:", act.effects)  # Print statement to inspect act.effects
         new_state_asst.update(act.effects)
         return State(new_state_asst)
 
