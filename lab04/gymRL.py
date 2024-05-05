@@ -3,31 +3,28 @@ from gym import spaces
 import pygame
 import numpy as np
 
+# Game settings
+WINDOW_SIZE = 800
+BLOCK_SIZE = 10
+SPEED = 10
+NUMBER_OF_OBSTACLES = 10
+MAX_SNAKE_LENGTH = 100
+MAX_OBSTACLE_SIZE = 10
 
-class GridWorldEnv(gym.Env):
+class SnakeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     def __init__(self, render_mode=None, size=5):
-        self.size = size  # The size of the square grid
-        self.window_size = 512  # The size of the PyGame window
-
-        # Observations are dictionaries with the agent's and the target's location.
-        # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
+        self.size = size
+        self.window_size = 800
         self.observation_space = spaces.Dict(
             {
-                "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-                "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+                "snake": spaces.Box(0, size - 1, shape=(MAX_SNAKE_LENGTH, 2), dtype=int),
+                "food": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+                "obstacles": spaces.Box(0, size - 1, shape=(MAX_OBSTACLE_SIZE, 2), dtype=int),
             }
         )
-
-        # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
         self.action_space = spaces.Discrete(4)
-
-        """
-        The following dictionary maps abstract actions from `self.action_space` to 
-        the direction we will walk in if that action is taken.
-        I.e. 0 corresponds to "right", 1 to "up" etc.
-        """
         self._action_to_direction = {
             0: np.array([1, 0]),
             1: np.array([0, 1]),
@@ -37,66 +34,83 @@ class GridWorldEnv(gym.Env):
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-
-        """
-        If human-rendering is used, `self.window` will be a reference
-        to the window that we draw to. `self.clock` will be a clock that is used
-        to ensure that the environment is rendered at the correct framerate in
-        human-mode. They will remain `None` until human-mode is used for the
-        first time.
-        """
+        
+        self._obstacles = []
         self.window = None
         self.clock = None
 
     def _get_obs(self):
-        return {"agent": self._agent_location, "target": self._target_location}
-
+        return {
+            "snake": self._snake,
+            "food": self._food_location,
+            "obstacles": self._obstacles,
+        }
+    
     def _get_info(self):
         return {
             "distance": np.linalg.norm(
-                self._agent_location - self._target_location, ord=1
+                self._snake[0] - self._food_location, ord=1
             )
         }
-
-    def reset(self, seed=None, options=None):
-        # We need the following line to seed self.np_random
+    
+    def reset(self, seed=None):
         super().reset(seed=seed)
 
-        # Choose the agent's location uniformly at random
-        self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
-
-        # We will sample the target's location randomly until it does not coincide with the agent's location
-        self._target_location = self._agent_location
-        while np.array_equal(self._target_location, self._agent_location):
-            self._target_location = self.np_random.integers(
-                0, self.size, size=2, dtype=int
-            )
+        self.np_random, seed = gym.utils.seeding.np_random(seed)
+        self._snake = [self.np_random.integers(0, self.size, size=2, dtype=int)]
+        
+        # Generate food and obstacles, checking for collisions with the snake
+        self._food_location = self._snake[0]
+        while np.array_equal(self._food_location, self._snake[0]):
+            self._food_location = self._generate_food()
+        
+        self._obstacles = self._snake
+        while any(np.array_equal(obstacle, self._snake[0]) for obstacle in self._obstacles):
+            self._obstacles = self._generate_obstacles()
 
         observation = self._get_obs()
-        info = self._get_info()
+        info = {}  # Add any auxiliary information here
 
         if self.render_mode == "human":
-            self._render_frame()
+            self.render()
 
         return observation, info
+    
+    
+    def _generate_obstacles(self):
+        # Generate obstacles here. This is just an example.
+        return [self.np_random.integers(0, self.size, size=2, dtype=int) for _ in range(5)]
+
+    def _generate_food(self):
+        while True:
+            food_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+            if all(not np.array_equal(food_location, pos) for pos in self._snake):
+                return food_location
 
     def step(self, action):
-        # Map the action (element of {0,1,2,3}) to the direction we walk in
         direction = self._action_to_direction[action]
-        # We use `np.clip` to make sure we don't leave the grid
-        self._agent_location = np.clip(
-            self._agent_location + direction, 0, self.size - 1
-        )
-        # An episode is done iff the agent has reached the target
-        terminated = np.array_equal(self._agent_location, self._target_location)
-        reward = 1 if terminated else 0  # Binary sparse rewards
-        observation = self._get_obs()
-        info = self._get_info()
+        new_head = self._snake[0] + direction
+
+        terminated = any(np.array_equal(new_head, pos) for pos in self._snake) or \
+                    any(np.array_equal(new_head, pos) for pos in self._obstacles) or \
+                    not (0 <= new_head).all() or \
+                    not (new_head < self.size).all()
+
+        if terminated:
+            return self._get_obs(), -1, True, self._get_info()
+
+        self._snake.insert(0, new_head)
+        if np.array_equal(new_head, self._food_location):
+            self._food_location = self._generate_food()
+            reward = 1
+        else:
+            self._snake.pop()
+            reward = 0
 
         if self.render_mode == "human":
-            self._render_frame()
+            self.render()
 
-        return observation, reward, terminated, False, info
+        return self._get_obs(), reward, False, self._get_info()
 
     def render(self):
         if self.render_mode == "rgb_array":
@@ -112,28 +126,34 @@ class GridWorldEnv(gym.Env):
 
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((255, 255, 255))
-        pix_square_size = (
-            self.window_size / self.size
-        )  # The size of a single grid square in pixels
+        pix_square_size = self.window_size / self.size
 
-        # First we draw the target
         pygame.draw.rect(
             canvas,
             (255, 0, 0),
             pygame.Rect(
-                pix_square_size * self._target_location,
+                pix_square_size * self._food_location,
                 (pix_square_size, pix_square_size),
             ),
         )
-        # Now we draw the agent
-        pygame.draw.circle(
-            canvas,
-            (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size / 3,
-        )
+        for pos in self._snake:
+            pygame.draw.circle(
+                canvas,
+                (0, 0, 255),
+                (pos + 0.5) * pix_square_size,
+                pix_square_size / 3,
+            )
 
-        # Finally, add some gridlines
+        for pos in self._obstacles:  # Draw obstacles
+            pygame.draw.rect(
+                canvas,
+                (0, 255, 0),
+                pygame.Rect(
+                    pix_square_size * pos,
+                    (pix_square_size, pix_square_size),
+                ),
+            )
+
         for x in range(self.size + 1):
             pygame.draw.line(
                 canvas,
@@ -151,15 +171,11 @@ class GridWorldEnv(gym.Env):
             )
 
         if self.render_mode == "human":
-            # The following line copies our drawings from `canvas` to the visible window
             self.window.blit(canvas, canvas.get_rect())
             pygame.event.pump()
             pygame.display.update()
-
-            # We need to ensure that human-rendering occurs at the predefined framerate.
-            # The following line will automatically add a delay to keep the framerate stable.
             self.clock.tick(self.metadata["render_fps"])
-        else:  # rgb_array
+        else:
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
@@ -171,10 +187,10 @@ class GridWorldEnv(gym.Env):
 
 
 if __name__ == "__main__":
-    env = GridWorldEnv(render_mode="human", size=5)
+    env = SnakeEnv(render_mode="human", size=10)
     env.reset()
     for _ in range(100):
-        action = env.action_space.sample()
-        env.step(action)
+        env.step(env.action_space.sample())
         env.render()
     env.close()
+

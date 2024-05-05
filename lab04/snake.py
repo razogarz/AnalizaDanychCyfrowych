@@ -111,6 +111,7 @@ class Food:
         self.position = (0, 0)
         self.color = (255, 0, 0)
         self.randomize_position()
+        #TODO: FIX SPAWNING IN BORDER
         while self.position in obstacles:
             self.randomize_position()
 
