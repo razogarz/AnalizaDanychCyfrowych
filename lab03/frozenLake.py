@@ -33,8 +33,11 @@ rng = np.random.default_rng(params.seed)
 # Create the figure folder if it doesn't exist
 params.savefig_folder.mkdir(parents=True, exist_ok=True)
 
+problem = "FrozenLake-v1"
+problem_2 = "LunarLander-v2"
+
 env = gym.make(
-    "FrozenLake-v1",
+    problem,
     is_slippery=params.is_slippery,
     render_mode="human",
     desc=generate_random_map(
@@ -64,7 +67,7 @@ st_all = pd.DataFrame()
 
 for map_size in map_sizes:
     env = gym.make(
-        "FrozenLake-v1",
+        problem,
         is_slippery=params.is_slippery,
         render_mode="rgb_array",
         desc=generate_random_map(
